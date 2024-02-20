@@ -4,15 +4,16 @@ using System.Net.Http;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Xml.Linq;
 using Newtonsoft.Json.Linq;
 using System.IO;
+using System.Net;
+using System.Diagnostics;
 
 namespace MultiTool
 {
     public class Program
     {
-        public static void Main(string[] args)
+        static async Task Main(string[] args)
         {
             Console.Title = "Multi-Tool";
             Console.Clear();
@@ -20,8 +21,8 @@ namespace MultiTool
             Console.WriteLine();
             Console.WriteLine("Options:");
             Console.logOption("1", "Nitro Gen");
-            Console.logOption("2", "Nuker");
-            Console.logOption("3", "Option 3");
+            Console.logOption("2", "User LookUp");
+            Console.logOption("3", "Guild LookUp");
             Console.logOption("0", "Exit");
 
             Console.log("Enter your choice: ", false);
@@ -38,9 +39,39 @@ namespace MultiTool
                     Console.log($"You can find the results in: {Environment.CurrentDirectory + "\\results.txt"}");
                 }
             }
-            if (choice == "2")
+            else if (choice == "2")
             {
+                Console.log("Enter the user ID: ", false);
+                string userId = Console.ReadLine();
 
+                try
+                {
+                    string[] userInfo = await DiscordLookup.GetUserInfo(userId);
+                    Console.log($"Username: {userInfo[0]}");
+                    Console.log($"Global Username: {userInfo[1]}");
+                    Console.log($"Avatar URL: {userInfo[2]}");
+                    Console.log($"Banner URL: {userInfo[3]}");
+                }
+                catch (HttpRequestException e)
+                {
+                    Console.log($"Error retrieving user information: {e.Message}");
+                }
+            }
+            else if (choice == "3")
+            {
+                Console.log("Enter the guild ID: ", false);
+                string guildId = Console.ReadLine();
+
+                try
+                {
+                    string[] guildInfo = await DiscordLookup.GetGuildInfo(guildId);
+                    Console.log($"Name: {guildInfo[0]}");
+                    Console.log($"invite: {guildInfo[1]}");
+                }
+                catch (HttpRequestException e)
+                {
+                    Console.log($"Error retrieving user information: {e.Message}");
+                }
             }
             else
             {
@@ -130,5 +161,40 @@ namespace MultiTool
         }
         public static void Save(string url) { using (StreamWriter sw = new StreamWriter(folderPath, true)) { sw.WriteLine(url); } }
     }
+    public class DiscordLookup
+    {
+        private static HttpClient client = new HttpClient();
+        public static async Task<string[]> GetUserInfo(string userId)
+        {
+            string url = $"https://discordlookup.mesavirep.xyz/v1/user/{userId}";
+            HttpResponseMessage response = await client.GetAsync(url);
+            response.EnsureSuccessStatusCode();
 
+            string responseBody = await response.Content.ReadAsStringAsync();
+            JObject userJson = JObject.Parse(responseBody);
+
+            string globalnameUrl = userJson["global_name"].ToString();
+            string username = userJson["username"].ToString();
+            string avatarUrl = userJson["avatar"]["link"].ToString();
+            string bannerUrl = userJson["banner"]["link"].ToString();
+
+
+            return new string[] { username, globalnameUrl, avatarUrl, bannerUrl };
+        }
+        public static async Task<string[]> GetGuildInfo(string guildId)
+        {
+            string url = $"https://discordlookup.mesavirep.xyz/v1/guild/{guildId}";
+            HttpResponseMessage response = await client.GetAsync(url);
+            response.EnsureSuccessStatusCode();
+
+            string responseBody = await response.Content.ReadAsStringAsync();
+            JObject userJson = JObject.Parse(responseBody);
+
+            string name = userJson["name"].ToString();
+            string instantinvite = userJson["instant_invite"].ToString();
+
+
+            return new string[] { name, instantinvite };
+        }
+    }
 }
